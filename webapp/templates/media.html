@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}ED Data Express Archive - Media Files{% endblock %}
+
+{% block custom_css %}
+<style>
+    .media-tabs {
+        margin-bottom: 1.5rem;
+    }
+    .media-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    .media-item {
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        overflow: hidden;
+        transition: transform 0.2s;
+        background-color: #fff;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .media-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    .media-preview {
+        height: 150px;
+        background-color: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    .media-preview img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+    }
+    .media-preview .document-icon {
+        font-size: 3rem;
+        color: #6c757d;
+    }
+    .media-info {
+        padding: 0.75rem;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    .media-name {
+        margin-bottom: 0.5rem;
+        word-break: break-word;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    .media-actions {
+        margin-top: auto;
+    }
+    .media-filter {
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-4">Media Files</h1>
+    <p class="lead">
+        Browse archived media files from the ED Data Express website.
+    </p>
+</div>
+
+<div class="media-tabs">
+    <ul class="nav nav-tabs" id="mediaTypeTabs">
+        <li class="nav-item">
+            <a class="nav-link {% if media_type == 'images' %}active{% endif %}" href="/media?type=images">
+                <i class="bi bi-images"></i> Images
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if media_type == 'videos' %}active{% endif %}" href="/media?type=videos">
+                <i class="bi bi-film"></i> Videos
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if media_type == 'documents' %}active{% endif %}" href="/media?type=documents">
+                <i class="bi bi-file-earmark-text"></i> Documents
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if media_type == 'other' %}active{% endif %}" href="/media?type=other">
+                <i class="bi bi-files"></i> Other Files
+            </a>
+        </li>
+    </ul>
+</div>
+
+<div class="media-filter">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="input-group">
+                <input type="text" class="form-control" id="mediaSearch" placeholder="Search files...">
+                <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-6 text-md-end">
+            <span class="text-muted">{{ files|length }} files found</span>
+        </div>
+    </div>
+</div>
+
+{% if files %}
+<div class="media-grid" id="mediaGrid">
+    {% for file in files %}
+    <div class="media-item">
+        <div class="media-preview">
+            {% if media_type == 'images' %}
+                <img src="/media/{{ media_type }}/{{ file }}" alt="{{ file }}" loading="lazy">
+            {% elif media_type == 'videos' %}
+                <i class="bi bi-play-circle document-icon"></i>
+            {% elif media_type == 'documents' %}
+                {% if file.lower().endswith('.pdf') %}
+                    <i class="bi bi-file-earmark-pdf document-icon"></i>
+                {% elif file.lower().endswith(('.doc', '.docx')) %}
+                    <i class="bi bi-file-earmark-word document-icon"></i>
+                {% elif file.lower().endswith(('.xls', '.xlsx')) %}
+                    <i class="bi bi-file-earmark-excel document-icon"></i>
+                {% elif file.lower().endswith(('.ppt', '.pptx')) %}
+                    <i class="bi bi-file-earmark-slides document-icon"></i>
+                {% else %}
+                    <i class="bi bi-file-earmark-text document-icon"></i>
+                {% endif %}
+            {% else %}
+                <i class="bi bi-file-earmark document-icon"></i>
+            {% endif %}
+        </div>
+        <div class="media-info">
+            <div class="media-name">{{ file }}</div>
+            <div class="media-actions">
+                <a href="/media/{{ media_type }}/{{ file }}" class="btn btn-sm btn-primary" target="_blank">
+                    <i class="bi bi-eye"></i> View
+                </a>
+                <a href="/media/{{ media_type }}/{{ file }}" class="btn btn-sm btn-outline-secondary" download>
+                    <i class="bi bi-download"></i> Download
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> No {{ media_type }} found. Run the media download process first.
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Search functionality
+        const mediaSearch = document.getElementById('mediaSearch');
+        const searchButton = document.getElementById('searchButton');
+        const mediaGrid = document.getElementById('mediaGrid');
+        const mediaItems = mediaGrid ? mediaGrid.querySelectorAll('.media-item') : [];
+        
+        function performSearch() {
+            if (!mediaItems.length) return;
+            
+            const searchTerm = mediaSearch.value.toLowerCase();
+            let matchCount = 0;
+            
+            mediaItems.forEach(item => {
+                const mediaName = item.querySelector('.media-name').textContent.toLowerCase();
+                if (mediaName.includes(searchTerm)) {
+                    item.style.display = 'flex';
+                    matchCount++;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // Update match count
+            document.querySelector('.text-muted').textContent = `${matchCount} files found`;
+        }
+        
+        if (searchButton) {
+            searchButton.addEventListener('click', performSearch);
+        }
+        
+        if (mediaSearch) {
+            mediaSearch.addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+        }
+        
+        // Lazy loading for images
+        if ('loading' in HTMLImageElement.prototype) {
+            // Browser supports native lazy loading
+            const images = document.querySelectorAll('img[loading="lazy"]');
+            images.forEach(img => {
+                img.src = img.src;
+            });
+        } else {
+            // Fallback for browsers that don't support lazy loading
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/lazysizes/5.3.2/lazysizes.min.js';
+            document.body.appendChild(script);
+            
+            const images = document.querySelectorAll('img[loading="lazy"]');
+            images.forEach(img => {
+                img.classList.add('lazyload');
+                img.setAttribute('data-src', img.src);
+                img.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+            });
+        }
+    });
+</script>
+{% endblock %} 

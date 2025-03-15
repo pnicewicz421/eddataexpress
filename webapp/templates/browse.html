@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}ED Data Express Archive - Browse Website{% endblock %}
+
+{% block custom_css %}
+<style>
+    .html-container {
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        margin-top: 1rem;
+        background-color: #f8f9fa;
+        max-height: 800px;
+        overflow-y: auto;
+    }
+    .page-list {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    .page-iframe {
+        width: 100%;
+        height: 800px;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+    }
+    .search-form {
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-4">Browse Archived Website</h1>
+    <p class="lead">
+        Browse the archived ED Data Express website, including HTML pages, CSS styles, and JavaScript files.
+    </p>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Pages</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="search-form p-3">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="pageSearch" placeholder="Search pages...">
+                        <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="list-group page-list" id="pageList">
+                    {% for html_file in html_files %}
+                    <a href="/browse?page={{ html_file }}" class="list-group-item list-group-item-action {% if html_file == page %}active{% endif %}">
+                        {{ html_file }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ page }}</h5>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-secondary" id="viewSourceBtn">
+                        <i class="bi bi-code"></i> View Source
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" id="viewRenderedBtn">
+                        <i class="bi bi-display"></i> View Rendered
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="sourceView" class="html-container">
+                    <pre><code>{{ content }}</code></pre>
+                </div>
+                <div id="renderedView" class="page-iframe-container" style="display: none;">
+                    <iframe id="pageFrame" class="page-iframe" srcdoc="{{ content }}" sandbox="allow-same-origin"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle view toggles
+        const viewSourceBtn = document.getElementById('viewSourceBtn');
+        const viewRenderedBtn = document.getElementById('viewRenderedBtn');
+        const sourceView = document.getElementById('sourceView');
+        const renderedView = document.getElementById('renderedView');
+        
+        viewSourceBtn.addEventListener('click', function() {
+            sourceView.style.display = 'block';
+            renderedView.style.display = 'none';
+            viewSourceBtn.classList.add('active');
+            viewRenderedBtn.classList.remove('active');
+        });
+        
+        viewRenderedBtn.addEventListener('click', function() {
+            sourceView.style.display = 'none';
+            renderedView.style.display = 'block';
+            viewSourceBtn.classList.remove('active');
+            viewRenderedBtn.classList.add('active');
+        });
+        
+        // Search functionality
+        const pageSearch = document.getElementById('pageSearch');
+        const searchButton = document.getElementById('searchButton');
+        const pageList = document.getElementById('pageList');
+        const pageLinks = pageList.querySelectorAll('a');
+        
+        function performSearch() {
+            const searchTerm = pageSearch.value.toLowerCase();
+            
+            pageLinks.forEach(link => {
+                const pageName = link.textContent.trim().toLowerCase();
+                if (pageName.includes(searchTerm)) {
+                    link.style.display = 'block';
+                } else {
+                    link.style.display = 'none';
+                }
+            });
+        }
+        
+        searchButton.addEventListener('click', performSearch);
+        pageSearch.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+    });
+</script>
+{% endblock %} 

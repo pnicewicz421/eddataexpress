@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}ED Data Express Archive - Home{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-4">ED Data Express Archive</h1>
+    <p class="lead">
+        Welcome to the ED Data Express Archive, a comprehensive backup of the 
+        <a href="https://eddataexpress.ed.gov/" target="_blank">ED Data Express</a> 
+        website and its underlying educational data.
+    </p>
+    <hr class="my-4">
+    <p>
+        This archive preserves vital education data and makes it accessible for research, 
+        analysis, and historical purposes. Explore the archived website, query the data, 
+        or browse media files using the navigation options below.
+    </p>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-globe"></i> Website Archive</h5>
+                <p class="card-text">
+                    Browse the archived ED Data Express website, including HTML pages, 
+                    CSS styles, and JavaScript files.
+                </p>
+                <p class="card-text">
+                    <strong>{{ html_count }}</strong> HTML files archived
+                </p>
+            </div>
+            <div class="card-footer">
+                <a href="/browse" class="btn btn-primary">Browse Website</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-table"></i> Data Explorer</h5>
+                <p class="card-text">
+                    Explore and query the extracted education data in CSV and Parquet formats.
+                </p>
+                <p class="card-text">
+                    <strong>{{ csv_count }}</strong> datasets available
+                </p>
+            </div>
+            <div class="card-footer">
+                <a href="/data" class="btn btn-primary">Explore Data</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-images"></i> Media Files</h5>
+                <p class="card-text">
+                    Access archived images, videos, documents, and other media files from the website.
+                </p>
+                <p class="card-text">
+                    <strong>{{ image_count }}</strong> media files archived
+                </p>
+            </div>
+            <div class="card-footer">
+                <a href="/media" class="btn btn-primary">Browse Media</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">About This Archive</h5>
+                <p class="card-text">
+                    The ED Data Express Archive project was created to preserve access to important 
+                    educational data published by the U.S. Department of Education. This archive 
+                    includes:
+                </p>
+                <ul>
+                    <li>Complete snapshots of the website HTML, CSS, and JavaScript</li>
+                    <li>Extracted data tables in both CSV and Parquet formats</li>
+                    <li>Archived images, videos, documents, and other media</li>
+                    <li>A query interface for exploring and analyzing the data</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Getting Started</h5>
+                <p class="card-text">
+                    Here are some ways to get started with the ED Data Express Archive:
+                </p>
+                <ol>
+                    <li>Browse the <a href="/browse">archived website</a> to explore pages as they appeared</li>
+                    <li>Use the <a href="/data">Data Explorer</a> to query and analyze education datasets</li>
+                    <li>Access <a href="/media">media files</a> including images and documents</li>
+                </ol>
+                <p class="card-text">
+                    For developers: All data is also available through our JSON API endpoints.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

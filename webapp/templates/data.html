@@ -1,0 +1,531 @@
+{% extends "base.html" %}
+
+{% block title %}ED Data Express Archive - Data Explorer{% endblock %}
+
+{% block custom_css %}
+<style>
+    .dataset-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .dataset-card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        transform: translateY(-5px);
+    }
+    #dataTable {
+        width: 100%;
+        overflow-x: auto;
+    }
+    #filterForm {
+        margin-bottom: 1rem;
+    }
+    #pagination {
+        margin-top: 1rem;
+    }
+    .loading {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 200px;
+    }
+    .chart-container {
+        height: 400px;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-4">Data Explorer</h1>
+    <p class="lead">
+        Explore and analyze the education data extracted from the ED Data Express website.
+    </p>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Available Datasets</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group" id="datasetList">
+                    {% for dataset in datasets %}
+                    <a href="#" class="list-group-item list-group-item-action dataset-item" data-dataset="{{ dataset }}">
+                        {{ dataset }}
+                    </a>
+                    {% endfor %}
+                </div>
+                
+                {% if not datasets %}
+                <p class="text-muted">No datasets available. Run the data extraction process first.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card mt-3" id="datasetInfo" style="display: none;">
+            <div class="card-header">
+                <h5 class="mb-0">Dataset Information</h5>
+            </div>
+            <div class="card-body">
+                <div id="datasetInfoContent">
+                    <!-- Dataset information will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card" id="dataPanel" style="display: none;">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0" id="currentDataset"></h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary" id="downloadCSV">
+                        <i class="bi bi-download"></i> CSV
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" id="visualizeData">
+                        <i class="bi bi-bar-chart"></i> Visualize
+                    </button>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                <div id="filterFormContainer">
+                    <form id="filterForm" class="row g-3">
+                        <!-- Filter fields will be loaded here -->
+                    </form>
+                </div>
+                
+                <div id="dataTableContainer">
+                    <div class="loading" id="loadingIndicator">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    <div id="dataTable" style="display: none;">
+                        <!-- Data table will be loaded here -->
+                    </div>
+                    <nav id="pagination" style="display: none;">
+                        <ul class="pagination justify-content-center">
+                            <!-- Pagination will be loaded here -->
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3" id="visualizationPanel" style="display: none;">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Data Visualization</h5>
+                <button class="btn btn-sm btn-outline-secondary" id="closeVisualization">
+                    <i class="bi bi-x-lg"></i> Close
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="chartType" class="form-label">Chart Type</label>
+                    <select class="form-select" id="chartType">
+                        <option value="bar">Bar Chart</option>
+                        <option value="line">Line Chart</option>
+                        <option value="pie">Pie Chart</option>
+                    </select>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="xAxis" class="form-label">X-Axis</label>
+                        <select class="form-select" id="xAxis">
+                            <!-- X-axis options will be loaded here -->
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="yAxis" class="form-label">Y-Axis</label>
+                        <select class="form-select" id="yAxis">
+                            <!-- Y-axis options will be loaded here -->
+                        </select>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="dataChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentDataset = null;
+    let currentPage = 1;
+    let pageSize = 10;
+    let totalRows = 0;
+    let columns = [];
+    let currentData = [];
+    let chart = null;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Setup dataset list click handlers
+        const datasetItems = document.querySelectorAll('.dataset-item');
+        datasetItems.forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const dataset = this.getAttribute('data-dataset');
+                loadDataset(dataset);
+                
+                // Update active item
+                datasetItems.forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+        
+        // Setup button handlers
+        document.getElementById('downloadCSV').addEventListener('click', downloadCSV);
+        document.getElementById('visualizeData').addEventListener('click', showVisualization);
+        document.getElementById('closeVisualization').addEventListener('click', closeVisualization);
+        document.getElementById('chartType').addEventListener('change', updateChart);
+        document.getElementById('xAxis').addEventListener('change', updateChart);
+        document.getElementById('yAxis').addEventListener('change', updateChart);
+    });
+    
+    function loadDataset(dataset) {
+        currentDataset = dataset;
+        document.getElementById('currentDataset').textContent = dataset;
+        document.getElementById('dataPanel').style.display = 'block';
+        document.getElementById('datasetInfo').style.display = 'block';
+        document.getElementById('visualizationPanel').style.display = 'none';
+        
+        // Show loading indicator
+        document.getElementById('loadingIndicator').style.display = 'flex';
+        document.getElementById('dataTable').style.display = 'none';
+        document.getElementById('pagination').style.display = 'none';
+        
+        // Fetch dataset info
+        fetch(`/api/datasets`)
+            .then(response => response.json())
+            .then(data => {
+                const datasetInfo = data.find(d => d.name === dataset);
+                if (datasetInfo) {
+                    displayDatasetInfo(datasetInfo);
+                    columns = datasetInfo.columns || [];
+                    
+                    // Setup filter form
+                    setupFilterForm(columns);
+                }
+            });
+        
+        // Fetch data for first page
+        loadPage(1);
+    }
+    
+    function displayDatasetInfo(info) {
+        const container = document.getElementById('datasetInfoContent');
+        container.innerHTML = '';
+        
+        if (info.error) {
+            container.innerHTML = `<div class="alert alert-warning">${info.error}</div>`;
+            return;
+        }
+        
+        const html = `
+            <p><strong>Name:</strong> ${info.name}</p>
+            <p><strong>Rows:</strong> ${info.row_count}</p>
+            <p><strong>Columns:</strong> ${info.columns.length}</p>
+            ${info.metadata && info.metadata.source_url ? 
+            `<p><strong>Source:</strong> <a href="${info.metadata.source_url}" target="_blank">${info.metadata.source_url}</a></p>` : ''}
+        `;
+        
+        container.innerHTML = html;
+    }
+    
+    function setupFilterForm(columns) {
+        const form = document.getElementById('filterForm');
+        form.innerHTML = '';
+        
+        // Add filter fields
+        columns.forEach(column => {
+            const div = document.createElement('div');
+            div.className = 'col-md-6 col-lg-4';
+            
+            div.innerHTML = `
+                <div class="mb-3">
+                    <label for="filter_${column}" class="form-label">${column}</label>
+                    <input type="text" class="form-control form-control-sm filter-field" 
+                           id="filter_${column}" name="filter_${column}" 
+                           placeholder="Filter ${column}">
+                </div>
+            `;
+            
+            form.appendChild(div);
+        });
+        
+        // Add search button
+        const buttonDiv = document.createElement('div');
+        buttonDiv.className = 'col-12';
+        buttonDiv.innerHTML = `
+            <button type="button" class="btn btn-primary" id="applyFilters">
+                <i class="bi bi-search"></i> Apply Filters
+            </button>
+            <button type="button" class="btn btn-outline-secondary" id="clearFilters">
+                <i class="bi bi-x-circle"></i> Clear Filters
+            </button>
+        `;
+        
+        form.appendChild(buttonDiv);
+        
+        // Add event listeners
+        document.getElementById('applyFilters').addEventListener('click', () => {
+            currentPage = 1;
+            loadPage(currentPage);
+        });
+        
+        document.getElementById('clearFilters').addEventListener('click', () => {
+            const filterFields = document.querySelectorAll('.filter-field');
+            filterFields.forEach(field => field.value = '');
+            currentPage = 1;
+            loadPage(currentPage);
+        });
+    }
+    
+    function loadPage(page) {
+        currentPage = page;
+        
+        // Show loading indicator
+        document.getElementById('loadingIndicator').style.display = 'flex';
+        document.getElementById('dataTable').style.display = 'none';
+        document.getElementById('pagination').style.display = 'none';
+        
+        // Build URL with parameters
+        let url = `/api/data/${currentDataset}?limit=${pageSize}&offset=${(page - 1) * pageSize}`;
+        
+        // Add filter parameters
+        const filterFields = document.querySelectorAll('.filter-field');
+        filterFields.forEach(field => {
+            if (field.value) {
+                url += `&${field.name}=${encodeURIComponent(field.value)}`;
+            }
+        });
+        
+        // Fetch data
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    displayError(data.error);
+                    return;
+                }
+                
+                totalRows = data.total;
+                currentData = data.data;
+                
+                displayData(data.data);
+                updatePagination();
+                
+                // Hide loading indicator
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('dataTable').style.display = 'block';
+                document.getElementById('pagination').style.display = 'block';
+            })
+            .catch(error => {
+                displayError(`Error loading data: ${error.message}`);
+            });
+    }
+    
+    function displayData(data) {
+        const container = document.getElementById('dataTable');
+        
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="alert alert-info">No data matching your criteria.</div>';
+            return;
+        }
+        
+        // Create table
+        let html = '<table class="table table-striped table-hover">';
+        
+        // Table header
+        html += '<thead><tr>';
+        Object.keys(data[0]).forEach(key => {
+            html += `<th>${key}</th>`;
+        });
+        html += '</tr></thead>';
+        
+        // Table body
+        html += '<tbody>';
+        data.forEach(row => {
+            html += '<tr>';
+            Object.values(row).forEach(value => {
+                html += `<td>${value !== null ? value : ''}</td>`;
+            });
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        
+        container.innerHTML = html;
+    }
+    
+    function updatePagination() {
+        const container = document.getElementById('pagination');
+        const totalPages = Math.ceil(totalRows / pageSize);
+        
+        if (totalPages <= 1) {
+            container.style.display = 'none';
+            return;
+        }
+        
+        let html = '';
+        
+        // Previous button
+        html += `
+            <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
+            </li>
+        `;
+        
+        // Page numbers
+        const maxPages = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxPages / 2));
+        let endPage = Math.min(totalPages, startPage + maxPages - 1);
+        
+        if (endPage - startPage + 1 < maxPages) {
+            startPage = Math.max(1, endPage - maxPages + 1);
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
+            html += `
+                <li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" data-page="${i}">${i}</a>
+                </li>
+            `;
+        }
+        
+        // Next button
+        html += `
+            <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
+            </li>
+        `;
+        
+        container.innerHTML = html;
+        
+        // Add event listeners
+        const pageLinks = container.querySelectorAll('.page-link');
+        pageLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const page = parseInt(this.getAttribute('data-page'));
+                if (page >= 1 && page <= totalPages) {
+                    loadPage(page);
+                }
+            });
+        });
+    }
+    
+    function displayError(message) {
+        document.getElementById('loadingIndicator').style.display = 'none';
+        document.getElementById('dataTable').style.display = 'block';
+        document.getElementById('dataTable').innerHTML = `
+            <div class="alert alert-danger">${message}</div>
+        `;
+    }
+    
+    function downloadCSV() {
+        if (!currentDataset) return;
+        
+        // Create a link to download the CSV
+        const link = document.createElement('a');
+        link.href = `/api/data/${currentDataset}/download`;
+        link.download = `${currentDataset}.csv`;
+        link.click();
+    }
+    
+    function showVisualization() {
+        document.getElementById('visualizationPanel').style.display = 'block';
+        
+        // Populate axis selectors
+        const xAxisSelect = document.getElementById('xAxis');
+        const yAxisSelect = document.getElementById('yAxis');
+        
+        xAxisSelect.innerHTML = '';
+        yAxisSelect.innerHTML = '';
+        
+        columns.forEach(column => {
+            xAxisSelect.innerHTML += `<option value="${column}">${column}</option>`;
+            yAxisSelect.innerHTML += `<option value="${column}">${column}</option>`;
+        });
+        
+        // Select second column for Y-axis if available
+        if (columns.length > 1) {
+            yAxisSelect.value = columns[1];
+        }
+        
+        updateChart();
+    }
+    
+    function closeVisualization() {
+        document.getElementById('visualizationPanel').style.display = 'none';
+        
+        // Destroy chart if exists
+        if (chart) {
+            chart.destroy();
+            chart = null;
+        }
+    }
+    
+    function updateChart() {
+        // Get selected options
+        const chartType = document.getElementById('chartType').value;
+        const xAxis = document.getElementById('xAxis').value;
+        const yAxis = document.getElementById('yAxis').value;
+        
+        if (!xAxis || !yAxis || !currentData.length) return;
+        
+        // Prepare data
+        const labels = currentData.map(row => row[xAxis]);
+        const data = currentData.map(row => row[yAxis]);
+        
+        // Define chart colors
+        const backgroundColor = [
+            'rgba(54, 162, 235, 0.6)',
+            'rgba(255, 99, 132, 0.6)',
+            'rgba(255, 206, 86, 0.6)',
+            'rgba(75, 192, 192, 0.6)',
+            'rgba(153, 102, 255, 0.6)',
+            'rgba(255, 159, 64, 0.6)'
+        ];
+        
+        // Destroy previous chart if exists
+        if (chart) {
+            chart.destroy();
+        }
+        
+        // Create chart
+        const ctx = document.getElementById('dataChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: chartType,
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: yAxis,
+                    data: data,
+                    backgroundColor: chartType === 'pie' ? backgroundColor : backgroundColor[0],
+                    borderColor: chartType === 'line' ? backgroundColor[0] : 'white',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        display: chartType !== 'pie'
+                    },
+                    x: {
+                        display: chartType !== 'pie'
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %} 
